@@ -1,0 +1,214 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "title": "Module Configuration Options",
+    "description": "Specifies both packer and runtime options for individual protected modules. Any options set in this file will only apply to the module that it is in, even for options that only apply at runtime. It is possible to use multiple different module configurations if you are protecting more than one module in your application.",
+    "properties": {
+        "$schema": {
+            "type": "string"
+        },
+        "tracing_mode": {
+            "description": "Which method to use for discovering code instructions in the input binary. Review the Theia SDK documentation for more details on each mode.",
+            "default": "TraceLocal",
+            "oneOf": [
+                {
+                    "const": "TraceLocal",
+                    "description": "For every function range defined in a PDB or runtime exception data, follow all reachable instructions within the range. Ignore any jumps that go outside the range. Generally accurate and detects the majority of instructions without false positives."
+                },
+                {
+                    "const": "TraceGlobal",
+                    "description": "Similar to TraceLocal, but instead keeps tracing executions as long as they fall within any function range. Generally produces more complete tracing than TraceLocal, but is slower."
+                },
+                {
+                    "const": "TrustDefinition",
+                    "description": "Do not perform tracing, and instead fully trust the ranges defined in the PDB and exception data. This will guarantee that all instructions are defined, even those only referenced indirectly, but will perform wrong results if any jump tables are present. If you are able to disable jump tables for the entirety of your application (including dependencies), this will perform the best results."
+                }
+            ]
+        },
+        "ept_hook_detection": {
+            "type": "boolean",
+            "description": "Whether the packer should insert 'gadgets' into executable pages for discovering potential hypervisor-based hooking attacks. This is a very lightweight check that will not affect performance, but will detect some common hooking techniques. This option is enabled by default.",
+            "default": true
+        },
+        "nanomites": {
+            "type": [
+                "object",
+                "null"
+            ],
+            "description": "Configuration options for the nanomite functionality. If `null`, disables nanomites entirely. Review the Theia SDK documentation for more information on nanomites.",
+            "default": null,
+            "additionalProperties": false,
+            "properties": {
+                "removal_threshold": {
+                    "type": "number",
+                    "description": "The number of times a nanomite must be executed within one removal interval before it is removed from the binary.",
+                    "minimum": 1,
+                    "maximum": 65000,
+                    "default": 100
+                },
+                "removal_total_threshold": {
+                    "type": "number",
+                    "description": "The total number of times nanomites may be executed within one removal interval before the heaviest ones are removed.",
+                    "minimum": 0,
+                    "maximum": 65000,
+                    "default": 0
+                },
+                "max_removal_ratio": {
+                    "type": "number",
+                    "description": "The maximum ratio of nanomites that can be removed from the module. If the number of nanomites that have been removed exceeds this ratio, no more nanomites will be removed. Setting this to 0 will disable nanomite removal.",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "default": 0.3
+                }
+            }
+        },
+        "encrypt": {
+            "type": "boolean",
+            "description": "Whether the packer should encrypt the contents of this module. It can be helpful to set this to 'false' during testing and debugging. **Warning**: Setting this to 'false' will lose the majority of the protection provided by Theia SDK and make it trivial for an attacker to reverse engineer your application.",
+            "default": true
+        },
+        "encrypt_section_padding": {
+            "type": "boolean",
+            "description": "Whether the packer should encrypt the padding bytes between sections. These padding bytes have a fixed value of zero, so encrypting them generally only incurs binary size and runtime costs.",
+            "default": false
+        },
+        "load_encryption": {
+            "type": "boolean",
+            "description": "If a page cannot continuously be encrypted, whether the packer should load the page in encrypted form and decrypt it immediately when the runtime is first loaded. This is generally a very lightweight operation that will not affect performance, but will make it more difficult for an attacker to reverse engineer the module. Disabling may improve startup performance. This option is enabled by default.",
+            "default": true
+        },
+        "full_read_protection": {
+            "type": "boolean",
+            "description": "Whether all attempts at read-access to executable memory should be rejected. Review the Theia SDK documentation for more details on this option.",
+            "default": true
+        },
+        "mid_instruction_decryption_rejection": {
+            "type": "boolean",
+            "description": "Whether attempts to decrypt a page in the middle of an instruction, as well as decryption attempts originating from inside an instruction, should be rejected. This prevents attackers from using bytes in decrypted pages as gadgets for decrypting more pages. Instruction bytes are explored using the same tracing system that powers full read protection. Disabled by default for backwards compatibility, but strongly recommended to be enabled.",
+            "default": true
+        },
+        "preloader_name": {
+            "type": "string",
+            "description": "The name of the preloader DLL that will be shipped with the packed module. The packed module will import the preloader.",
+            "default": "preloader.dll"
+        },
+        "rename_imports": {
+            "type": "object",
+            "description": "A mapping of imported DLL names to new names. This can be used to rename imported DLLs, which may be useful during development to generate a packed binary that references different imports.",
+            "default": {},
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+        "function_stealing": {
+            "type": [
+                "object",
+                "null"
+            ],
+            "description": "Configuration options for the function stealing functionality in the packer. Refer to the Theia SDK documentation for more information about function stealing.",
+            "additionalItems": false,
+            "default": null,
+            "properties": {
+                "always_steal": {
+                    "type": "array",
+                    "description": "A list of regular expressions or RVA ranges describing functions that should always be stolen, if eligible. Functions selected by these rules do not count against the `max_stolen_functions` limit. Note that you may need to use mangled names.",
+                    "default": [],
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "string",
+                                "description": "Regular expression matching a function name."
+                            },
+                            {
+                                "type": "object",
+                                "description": "A range of RVAs that should always be stolen.",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "start_rva": {
+                                        "type": "number",
+                                        "description": "The beginning RVA of the range.",
+                                        "minimum": 0,
+                                        "maximum": 4294967295
+                                    },
+                                    "end_rva": {
+                                        "type": "number",
+                                        "description": "The ending RVA of the range. Exclusive.",
+                                        "minimum": 0,
+                                        "maximum": 4294967295
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                },
+                "never_steal": {
+                    "type": "array",
+                    "description": "A list of regular expressions or RVA ranges describing functions that should never be stolen. Note that you may need to use mangled names.",
+                    "default": [],
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "string",
+                                "description": "Regular expression matching a function name."
+                            },
+                            {
+                                "type": "object",
+                                "description": "A range of RVAs that should not be stolen.",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "start_rva": {
+                                        "type": "number",
+                                        "description": "The beginning RVA of the range.",
+                                        "minimum": 0,
+                                        "maximum": 4294967295
+                                    },
+                                    "end_rva": {
+                                        "type": "number",
+                                        "description": "The ending RVA of the range. Exclusive.",
+                                        "minimum": 0,
+                                        "maximum": 4294967295
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                },
+                "max_stolen_functions": {
+                    "type": "number",
+                    "description": "The maximum number of functions that can be stolen. Eligible functions will be randomly selected up to this limit. Functions selected by the `always_steal` property do not count towards this limit. Set to -1 to disable the limit.",
+                    "minimum": -1,
+                    "default": -1
+                },
+                "steal_unwind_data": {
+                    "type": "boolean",
+                    "description": "Whether to steal functions that have trivial unwind data. This option is provided solely for debugging options. If toggling this value impacts proper functioning of your binary, please contact us.",
+                    "default": true
+                }
+            }
+        },
+        "ignore_sections": {
+            "type": "array",
+            "description": "A list of section names that should be ignored by the packer. Content in these sections will not be encrypted or modified in any way. If the ignored section includes code, no nanomites or function stealing will be performed in that section.",
+            "default": [],
+            "items": {
+                "type": "string",
+                "maxLength": 8,
+                "description": "Name of the section, including the leading period (if applicable)."
+            }
+        },
+        "import_obfuscation": {
+            "type": "boolean",
+            "description": "Instead of resolving imports directly, a computed jump stub is inserted that jumps to the target function.",
+            "default": true
+        },
+        "full_reencryption_threshold": {
+            "type": "number",
+            "description": "The maximum ratio of decrypted page that is allowed to exist in the process. If more than the given ratio is decrypted, a full re-encryption of the entire binary will be performed. This should be set to reasonably high number (e.g. 0.5 for 50%) or set as `0` to disable the feature entirely. To find a good ratio, the QueryPageStats SDK function can be used to obtain the current encryption ratio.",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 1
+        }
+    },
+    "required": []
+}

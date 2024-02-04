@@ -1,0 +1,18 @@
+[book]
+authors = ["Zero IT Lab"]
+language = "en"
+multilingual = false
+src = "docs"
+title = "Theia SDK Documentation - v2.x"
+
+[output.html]
+no-section-label = true
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = "https://gitlab.com/zeroitlab/theia-sdk"
+git-repository-icon = "fa-gitlab"
+additional-css = ["theme/pagetoc.css"]
+additional-js = ["theme/pagetoc.js"]
+
+[output.html.print]
+enable = false

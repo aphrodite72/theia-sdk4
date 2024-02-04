@@ -1,0 +1,767 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "Runtime Configuration Options",
+  "description": "Describes the configuration used for generating a Theia runtime.",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "product-version": {
+      "type": "string",
+      "description": "The Theia version that you wish to build with. This value is interpreted by the Bifrost platform and does not get passed to the Theia runtime.",
+      "pattern": "^theia-2(\\.\\d+)?(\\.\\d+)?$"
+    },
+    "thirdparty_license_version": {
+      "description": "The version of the third-party licenses that you wish to build with. Certain features or optimizations may or may not be available depending on this setting. Review the licenses documentation in the Theia SDK for a list of possible values and which licenses and features they imply.",
+      "oneOf": [
+        {
+          "const": "2023-03-03"
+        },
+        {
+          "const": "2023-12-06"
+        }
+      ]
+    },
+    "runtime_name": {
+      "type": "string",
+      "description": "The name of the runtime as shipped with your game. If you rename runtime, you must update this value.",
+      "default": "runtime.dll"
+    },
+    "os_version": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Constraints describing which versions of various operating systems this runtime should work on.",
+      "properties": {
+        "block_win7": {
+          "type": "boolean",
+          "description": "If true, this runtime will not work on Windows 7.",
+          "default": true
+        },
+        "block_win81": {
+          "type": "boolean",
+          "description": "If true, this runtime will not work on Windows 8.1.",
+          "default": true
+        },
+        "block_wine": {
+          "type": "boolean",
+          "description": "If true, this runtime will not work on Wine/Proton/Linux.",
+          "default": true
+        }
+      }
+    },
+    "cert_sha1_allowlist": {
+      "type": "array",
+      "description": "A list of certificate thumbprints/fingerprints that should always be accepted, even if their certificate chain cannot be verified. Values must be either a 20-long array of bytes, or a 40-character hex string. The thumbprint of a certificate can be found in Windows by going to 'View Certificate', 'Details', 'Thumbprint'. Empty by default.",
+      "items": {
+        "anyOf": [
+          {
+            "type": "array",
+            "description": "An array of 20 bytes.",
+            "minItems": 20,
+            "maxItems": 20,
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 255
+            }
+          },
+          {
+            "type": "string",
+            "description": "A 40-character hex string.",
+            "pattern": "^[0-9a-fA-F]{40}$"
+          }
+        ]
+      },
+      "default": []
+    },
+    "debug_register_usage": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "default": null,
+      "description": "Describes if Theia should use debug registers to spoof various structures to make dumping harder.",
+      "properties": {
+        "fake_ldr_and_module_base": {
+          "type": "boolean",
+          "description": "If true, this runtime will spoof PEB->LDR and PEB->ImageBaseAddress with a fake one.",
+          "default": true
+        }
+      }
+    },
+    "windowhook_sanitization": {
+      "description": "Whether Theia should sanitize (drop) malicious Window Message hooks.",
+      "default": true,
+      "type": "boolean"
+    },
+    "vulnerable_driver": {
+      "description": "Whether Theia should detect and possibly exploit known vulnerable kernel drivers. Attackers use such drivers to achieve kernel-level control over the process, which can bypass certain Theia detections.",
+      "default": "None",
+      "oneOf": [
+        {
+          "const": "None",
+          "description": "Do not detect exploitable drivers."
+        },
+        {
+          "const": "Detect",
+          "description": "Detect vulnerable drivers by attempting to invoke harmless methods on them. If one is found, trigger a crash callback."
+        },
+        {
+          "const": "Exploit",
+          "description": "Attempt to exploit any installed vulnerable drivers in a way that causes a BSOD (if possible for the specific driver)."
+        }
+      ]
+    },
+    "remote_process_handle": {
+        "description": "Describes if Theia should look for handles to the process in other processes, and what to do if any are found. Handles are ignored if the process that owns the handle is signed.",
+        "default": "None",
+        "oneOf": [
+            {
+                "const": "None",
+                "description": "Do not look for such handles."
+            },
+            {
+                "const": "Detect",
+                "description": "If handles are found, trigger a crash callback."
+            },
+            {
+                "const": "CloseOrIgnore",
+                "description": "If handles are found, try to close them. If they can't be closed, ignore them."
+            },
+            {
+                "const": "CloseOrDetect",
+                "description": "If handles are found, try to close them. If they can't be closed, trigger a crash callback."
+            }
+        ]
+    },
+    "instrumentation_callback": {
+      "description": "Describes if Theia should use instrumentation callbacks to verify process integrity, and what to do if an existing instrumentation callback is present before the Theia runtime initializes.",
+      "default": "UseChain",
+      "oneOf": [
+        {
+          "const": "None",
+          "description": "Leave the existing instrumentation callback in place. If `ntdll_antihook` is enabled, this may cause conflicts with the third-party instrumentation software, as the callbacks may be invoked while the process is in a broken state. Not recommended."
+        },
+        {
+          "const": "Remove",
+          "description": "Remove the existing instrumentation callback. This may cause conflicts with the third-party instrumentation software, as it may perform checks to check whether the callback is still in place."
+        },
+        {
+          "const": "RemoveAndHook",
+          "description": "Remove the existing instrumentation callback, and prevent any new ones from being registered. This may cause conflicts with the third-party instrumentation software, as it may perform checks to check whether the callback is still in place."
+        },
+        {
+          "const": "TempRemove",
+          "description": "Temporarily remove the existing instrumentation callback, and re-add it after the Theia runtime has initialized. This avoids potentially calling the callback while the process is in a broken state."
+        },
+        {
+          "const": "Use",
+          "description": "Install an instrumentation callback and use it to verify the legitimacy of decryption attempts."
+        },
+        {
+          "const": "UseChain",
+          "description": "Install an instrumentation callback and use it to verify the legitimacy of decryption attempts. If an existing callback is present, invoke it afterwards."
+        }
+      ]
+    },
+    "crash_handler": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Object describing several configuration options for the default Theia crash handler.",
+      "properties": {
+        "dumper_implementation": {
+          "description": "The crash dumper implementation to use.",
+          "default": {
+            "type": "Gui"
+          },
+          "oneOf": [
+            {
+              "type": "object",
+              "description": "The default Theia dumper UI.",
+              "properties": {
+                "type": {
+                  "const": "Gui"
+                },
+                "support_instructions": {
+                  "type": "string",
+                  "description": "An optional text message that will be shown to the user if the application crashes. This is useful for providing instructions on how to submit a crash dump to you.",
+                  "default": ""
+                },
+                "start_automatically": {
+                  "type": "boolean",
+                  "description": "Whether the crash dumping should start automatically.",
+                  "default": false
+                },
+                "close_automatically": {
+                  "type": "boolean",
+                  "description": "Whether the dumper should close automatically after dumping finished.",
+                  "default": false
+                },
+                "always_full": {
+                  "type": "boolean",
+                  "description": "Always make full dumps (not just when holding shift). Full dumps are significantly larger, but provide more information to diagnose crashes.",
+                  "default": false
+                },
+                "dump_path": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Path to the directory to put the dumps in. Environment variables are expanded. Default or null is temporary folder.",
+                  "default": null
+                },
+                "http": {
+                  "$ref": "#/$defs/dumper_upload_options"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            {
+              "type": "object",
+              "description": "Invoke a custom dumper executable that implements the Theia dumper SDK. `dumper_filename` must contain the path to the dumper executable. See the dumper documentation in the Theia SDK for more information.",
+              "properties": {
+                "type": {
+                  "const": "Custom"
+                },
+                "dumper_filename": {
+                  "type": "string",
+                  "description": "The filename of the custom crash handler.",
+                  "default": "dumper_example.exe"
+                },
+                "dump_path": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Path to the directory to put the dumps in. Environment variables are expanded. Default or null is temporary folder.",
+                  "default": null
+                },
+                "http": {
+                  "$ref": "#/$defs/dumper_upload_options"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            {
+              "type": "object",
+              "description": "Immediately perform a dump in the background without showing any UI. If configured, automatically upload the dump. Only show a bare-bones alert to the user if dumping fails.",
+              "properties": {
+                "type": {
+                  "const": "VerySilent"
+                },
+                "always_full": {
+                  "type": "boolean",
+                  "description": "Always make full dumps (not just when holding shift). Full dumps are significantly larger, but provide more information to diagnose crashes.",
+                  "default": false
+                },
+                "dump_path": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Path to the directory to put the dumps in. Environment variables are expanded. Default or null is temporary folder.",
+                  "default": null
+                },
+                "http": {
+                  "$ref": "#/$defs/dumper_upload_options"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            }
+          ]
+        },
+        "call_unhandled_exception_filter": {
+          "type": "boolean",
+          "description": "Whether the `UnhandledExceptionFilter` installed by the protected process should be invoked on an unhandled exception. Setting this to `false` will bypass any crash handlers in the protected process, forcing the Theia crash handler window to appear. Setting this to `true` will allow the protected application to handle the exception instead. If you are encountering issues with applications crashing without producing a dump, consider setting this to `false`.",
+          "default": false
+        }
+      }
+    },
+    "signature_check": {
+      "type": "boolean",
+      "description": "If true, Theia will check the signature of any modules that attempt to load into a protected process.",
+      "default": true
+    },
+    "enable_hashcache": {
+      "type": "boolean",
+      "description": "Whether Theia should use a hash cache to speed up signature checks. This will write a cache file to the user's temp directory. Usually speeds up signature checking by 2-3x when enabled. Disabled by default for backwards compatibility.",
+      "default": false
+    },
+    "section_permission_check": {
+      "type": "boolean",
+      "description": "If true, Theia will prevent any images with RWX or shareable sections from being loaded, even if they have a valid signature.",
+      "default": true
+    },
+    "enforce_win11_secureboot": {
+      "type": "boolean",
+      "description": "Enforce Secure Boot on Windows 11, where it is a system requirement.",
+      "default": true
+    },
+    "check_testsign_mode": {
+      "type": "boolean",
+      "description": "Check if test signing is enabled, and cause an anti-tamper crash if it is.",
+      "default": true
+    },
+    "detect_console_handle": {
+      "type": "boolean",
+      "description": "Check if there's a console window attached to the process.",
+      "default": false
+    },
+    "ntdll_antihook": {
+      "type": "boolean",
+      "description": "Attempt to detect and restore modifications made to standard Windows APIs by anti-viruses and other software.",
+      "default": true
+    },
+    "antidebug": {
+      "type": "boolean",
+      "description": "Perform anti-tamper checks that detect debuggers.",
+      "default": true
+    },
+    "antiemulation": {
+      "type": "boolean",
+      "description": "Perform anti-tamper checks that detect emulators.",
+      "default": true
+    },
+    "antihv": {
+      "type": "boolean",
+      "description": "Perform anti-tamper checks that detect malicious hypervisors.",
+      "default": true
+    },
+    "antivm": {
+      "type": "boolean",
+      "description": "Perform anti-tamper checks that detect virtual machines.",
+      "default": true
+    },
+    "allow_fake_hyperv": {
+      "type": "boolean",
+      "description": "Allow otherwise correct hypervisors that pretend being Hyper-V. shadow.tech and some VFIO users do this.",
+      "default": false
+    },
+    "badware": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "An object describing which malicious or undesired software products should be detected by Theia.",
+      "properties": {
+        "allow_all": {
+          "type": "boolean",
+          "description": "If set, will disable all badware detection. Overrides individual values.",
+          "default": false
+        },
+        "debuggers": {
+          "type": "boolean",
+          "default": true
+        },
+        "memhack_tools": {
+          "type": "boolean",
+          "default": true
+        },
+        "lldb": {
+          "type": "boolean",
+          "default": false
+        },
+        "procmon": {
+          "type": "boolean",
+          "default": true
+        },
+        "wireshark": {
+          "type": "boolean",
+          "default": false
+        },
+        "ida": {
+          "type": "boolean",
+          "default": true
+        },
+        "cffexplorer": {
+          "type": "boolean",
+          "default": false
+        },
+        "pebear": {
+          "type": "boolean",
+          "default": false
+        },
+        "winobjex": {
+          "type": "boolean",
+          "default": false
+        },
+        "injectors": {
+          "type": "boolean",
+          "default": true
+        },
+        "unknowncheats_generic": {
+          "type": "boolean",
+          "default": true
+        },
+        "dtrace": {
+          "type": "boolean",
+          "default": true
+        },
+        "processhacker": {
+          "type": "boolean",
+          "description": "Driver only.",
+          "default": true
+        },
+        "procexp": {
+          "type": "boolean",
+          "description": "Driver only.",
+          "default": true
+        },
+        "npcap": {
+          "type": "boolean",
+          "description": "Driver only.",
+          "default": false
+        },
+        "ahk": {
+          "type": "boolean",
+          "description": "AutoHotkey.",
+          "default": false
+        },
+        "rewasd": {
+          "type": "boolean",
+          "description": "ReWASD.",
+          "default": false
+        }
+      }
+    },
+    "debug": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "description": "An object describing debug options. These options should only be used in development builds, and only for debugging issues with Theia. If this option is set, the Theia runtime may show an indicator that these settings are turned on to deter you from using them in production (even if their values are unchanged from the default).",
+      "default": null,
+      "properties": {
+        "ip_tracker": {
+          "type": "boolean",
+          "description": "Whether repeated reads (not executions) of encrypted memory should eventually reject further decryption attempts. This is a method of preventing an attacker from dumping the game. This setting is incompatible with some libraries, because they exhibit behavior similar to an attacker trying to dump the game. If you encounter spurious crashes (most notably stack overflows), try setting this to `false`. If this fixes the issue, please contact us so that we can add compatibility with your binary.",
+          "default": true
+        },
+        "crash_on_antitamper_timeout": {
+          "type": "boolean",
+          "description": "Whether a timeout of an anti-tamper check should trigger a crash, or simply be ignored. If you are encountering consistent anti-tamper timeouts, which resolve themselves when setting this value to `false`, please contact us so we can troubleshoot.",
+          "default": true
+        },
+        "supercatch": {
+          "type": "boolean",
+          "description": "If true, Theia will forcibly handle all Theia-related exceptions, bypassing normal SEH and VEH handling. Turning this on can help diagnose issues when normal exception handling is silently swallowing or corrupting exceptions.",
+          "default": false
+        },
+        "self_integrity_violations_crash_clean": {
+          "type": "boolean",
+          "description": "By default, if any self-integrity checks embedded in the runtime fail, the stack will be randomly corrupted. This makes it harder for attackers to diagnose the cause of the crash. Setting this value to true will instead cause self-integrity violations to trigger a diagnosable crash. If you encounter sporadic crashes that you cannot diagnose, try setting this to `true`. If this fixes the issue, please contact us as this may indicate a bug in Theia.",
+          "default": false
+        },
+        "suppress_signature_error_message": {
+          "type": "boolean",
+          "description": "If false, Theia will let Windows display a message box when a signature check fails. This is useful for debugging signature issues, as images will otherwise be rejected silently.",
+          "default": false
+        },
+        "logs": {
+          "type": "boolean",
+          "description": "Internal option. Does nothing in customer-facing builds.",
+          "default": false
+        },
+        "just_crash": {
+          "type": "boolean",
+          "description": "Instead of starting dumper, just crash.",
+          "default": false
+        },
+        "no_self_integrity": {
+          "type": "boolean",
+          "description": "Allow patching runtime.dll.",
+          "default": false
+        },
+        "icb_leaker_skipped": {
+          "type": "boolean",
+          "description": "Assume no instrumentation callbacks are registered and skip trying to leak them.",
+          "default": false
+        },
+        "disable_periodic": {
+          "type": "boolean",
+          "description": "Disable the periodic task running system and all features that rely on it, such as badware detection, periodic integrity checks, nanomite removal, single-instance enforcement, and more. Extremely unsafe. Do not disable unless you absolutely know what you're doing.",
+          "default": false
+        },
+        "sanitize_heap": {
+          "type": "boolean",
+          "description": "Enables sanitization of heap usage in runtime.",
+          "default": false
+        }
+      }
+    },
+    "debrand": {
+      "type": "boolean",
+      "description": "If true, the generated runtime instance will have all Theia-related branding removed. This also replaces some mentions of 'Theia' with a nondescript 'packer' instead. Note that even if this is set, it is trivial for an attacker to determine that your product is using Theia.",
+      "default": false
+    },
+    "grace_period_mode": {
+      "description": "At the start of execution, Theia provides a brief grace period during which it will not take action on failed non-critical checks. This is to give the protected application time to initialize and call `ReadyForCallbacks`, as Theia would otherwise unconditionally fall back to default behavior and potentially cause unwanted crashes. This option controls when Theia is allowed to exit that grace period early.",
+      "default": "AllModules",
+      "oneOf": [
+        {
+          "description": "The grace period ends early if any module protected by the runtime calls `ReadyForCallbacks`.",
+          "const": "AnyModule"
+        },
+        {
+          "description": "The grace period ends early if all modules protected by the runtime call `ReadyForCallbacks`.",
+          "const": "AllModules"
+        },
+        {
+          "description": "The grace period will always run until it expires.",
+          "const": "AlwaysWait"
+        }
+      ]
+    },
+    "process_integrity": {
+      "type": "object",
+      "description": "Various options for monitoring and protecting the code integrity of the system.",
+      "additionalProperties": false,
+      "properties": {
+        "floating_executable_memory": {
+          "description": "Whether to monitor for executable memory that is not mapped to a file on disk. This is a common technique used by cheats to insert themselves into the process and to hijack existing functions. However, legitimate software like overlays and antiviruses may also use floating executable memory. Libraries that perform JIT-compilation, such as CEF and LuaJIT, may also allocate floating executable memory. Review the process integrity documentation in the Theia SDK for more information on available options and their tradeoffs.",
+          "default": "AllowAll",
+          "oneOf": [
+            {
+              "const": "AllowAll",
+              "description": "Allow all floating executable memory. This is the default behavior, and is the most permissive option."
+            },
+            {
+              "const": "AllowSmall",
+              "description": "Allow floating executable memory as long as it is a small allocation. This allows detours and common overlay injection techniques, but prevents large allocations that are more likely to be manual-mapped cheats."
+            },
+            {
+              "const": "Deny",
+              "description": "Always prevent floating executable memory."
+            }
+          ]
+        }
+      }
+    },
+    "spoof_thread_start": {
+      "description": "Spoof entry point for calls to CreateThread to an uniform value.",
+      "default": "None",
+      "oneOf": [
+        {
+          "description": "Disable spoofing.",
+          "const": "None"
+        },
+        {
+          "description": "Spoof to an uniform value.",
+          "const": "Spoof"
+        },
+        {
+          "description": "Spoof and kill any threads that don't have the spoofed value (aka external threads).",
+          "const": "SpoofKillExternal"
+        }
+      ]
+    },
+    "process_exit_mode": {
+      "description": "How process exit should be handled. Note that this only covers what happens after ExitProcess, most notably DLL unloads. Static destructors in the main image happen before ExitProcess.",
+      "default": "HandleTeardownExceptions",
+      "oneOf": [
+        {
+          "description": "When the process exits, perform normal teardown and terminate the process once complete. If an unhandled exception is encountered during teardown, invoke the configured crash handler in the same way as if the exception had been encountered during normal process execution. This behaviour ensures that all exceptions, even those that occur during process teardown, result in crash dumps that you can investigate. However, it diverges from normal Windows behaviour, which will silently swallow any exceptions that occur during process teardown.",
+          "const": "HandleTeardownExceptions"
+        },
+        {
+          "description": "Skip process teardown entirely by directly terminating the process with the given exit code. This will skip invoking certain termination callbacks, such as the DLL_PROCESS_DETACH event, but it's a quick and dirty way of avoiding having to deal with potential crashes during process teardown.",
+          "const": "SkipTeardownAndQuitInstantly"
+        },
+        {
+          "description": "When the process exits, perform normal teardown and terminate the process once complete. If an unhandled exception is encountered during teardown, immediately terminate the process by raising the exception to the kernel. Any teardown that has not yet been performed will be skipped. Exception parameters will be logged in the Event Log, and the exception code will become the exit code.",
+          "const": "RaiseOnTeardownException"
+        },
+        {
+          "description": "Similar to TerminateOnTeardownException, except that when terminating due to an unhandled exception the exit code will be set to 0, signaling a graceful shutdown. Any teardown that has not yet been performed will be skipped.",
+          "const": "TerminateOnTeardownExceptionZero"
+        }
+      ]
+    },
+    "periodic_integrity_check": {
+      "type": "boolean",
+      "description": "Integrity check decrypted pages periodically.",
+      "default": true
+    },
+    "periodic_task_timeout_ignore": {
+      "type": "boolean",
+      "description": "Instead of crashing on timeout of a task, just stop producing receipts. If enabled, we recommend enabling `receipt_timeout_sleep_instead` too.",
+      "default": false
+    },
+    "receipt_timeout_sleep_instead": {
+      "type": "boolean",
+      "description": "Instead of rejecting decryption on timeout of receipts, just sleep for a while, in hopes of eventual recovery.",
+      "default": false
+    },
+    "do_not_unhook_code_on_init_except_ntdll": {
+      "type": "boolean",
+      "description": "Reserved.",
+      "default": false
+    },
+    "allow_geforce_now": {
+      "type": "boolean",
+      "description": "Attests GeForce NOW and if that succeeds disables certain checks. Requires 2023-12-06 thirdparty license version.",
+      "default": false
+    },
+    "enforce_single_instance": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "default": null,
+      "description": "If non-null, only one instance is allowed to run at a time.",
+      "properties": {
+        "bring_to_foreground": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Window class to bring to foreground, if a second instance is launched."
+        },
+        "exitcode": {
+          "type": "integer",
+          "default": -1073740528,
+          "description": "Exit code to return with from the second instance."
+        }
+      },
+      "additionalProperties": false
+    },
+    "enforce_anticheat": {
+      "description": "If you are using Theia alongside an anti-cheat solution, allow Theia to enforce that the process is running under the protection of the anti-cheat. If set, the process will exit upon startup with an optional message if a required anti-cheat is not running. Using this setting is highly recommended if you use an anti-cheat solution, as it will prevent attackers from attempting to dump your game without the anti-cheat running.",
+      "default": null,
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "anticheat": {
+          "description": "Which anti-cheat solution to enforce. If your anti-cheat solution is not listed here, please contact us so we can add support for it.",
+          "oneOf": [
+            {
+              "const": "EasyAntiCheat",
+              "description": "Enforce that EasyAntiCheat is running and currently protecting the process."
+            },
+            {
+              "const": "EasyAntiCheatEOS",
+              "description": "Enforce that EasyAntiCheat is running and currently protecting the process. This is a special mode for EasyAntiCheat on the Epic Online Services platform."
+            }
+          ]
+        },
+        "exitcode": {
+          "type": "integer",
+          "default": -1073741244,
+          "description": "The exit code to use if no anti-cheat is running. Default: STATUS_AUDIT_FAILED (0xC0000244)."
+        },
+        "message": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "An optional message to display to the user before exiting if no anti-cheat is running. If null, no message will be displayed."
+        },
+        "enforce_driver_signature": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, enforce that the anti-cheat driver has a valid certificate signed by Microsoft containing the expected opus program name for the anti-cheat vendor. This prevents attackers from impersonating the anti-cheat driver, even if they have a valid kernel code-signing certificate. Disabled by default for backwards compatibility, but strongly recommended."
+        }
+      }
+    },
+    "periodic_reencryption": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "default": {},
+      "description": "Enable periodic re-encryption of eligible pages. The Theia runtime will prioritize re-encryption of pages that have not recently been invoked. Set to null to disable re-encryption.",
+      "properties": {
+        "count": {
+          "description": "The number of pages to re-encrypt on each tick. Increasing this value will result in more re-encryptions at the cost of performance.",
+          "type": "integer",
+          "default": 1,
+          "minimum": 1
+        },
+        "interval": {
+          "description": "Tick interval in milliseconds for the periodic re-encryption thread. Increasing this value will result in less re-encryptions. The default and minimum values are 16 ms, which is equal to once a frame at 60 fps.",
+          "type": "integer",
+          "minimum": 16,
+          "default": 16
+        }
+      }
+    },
+    "tpm": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "default": null,
+      "description": "Describes which TPM-related actions Theia should perform. If null, TPM is never queried.",
+      "properties": {
+        "enforce_secureboot": {
+          "type": "boolean",
+          "description": "Enforce Secure Boot on Windows 11.",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "hardware_error_message": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "description": "If non-null, display a message box if a high certainty hardware error was detected, instead of crashing. Recommended message:  \"A hardware error was detected. This is usually an indication of faulty hardware. If you see this message repeatedly, please ensure your hardware is stable, not overclocked, and free of faulty components.\"",
+      "default": null
+    }
+  },
+  "required": [
+    "thirdparty_license_version"
+  ],
+  "$defs": {
+    "dumper_upload_options": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "description": "If non-null, automatically upload created dumps to a given HTTP(s) endpoint. This will use a POST request with the dump as 'file_attachment' in a multipart/form-data request.",
+      "default": null,
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "Hostname or ip."
+        },
+        "port": {
+          "type": "number",
+          "description": "Port.",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "uri": {
+          "type": "string",
+          "description": "Endpoint URI."
+        },
+        "secure": {
+          "type": "boolean",
+          "description": "Use HTTPS.",
+          "default": true
+        }
+      },
+      "required": [
+        "host",
+        "port",
+        "uri",
+        "secure"
+      ]
+    }
+  }
+}
